@@ -127,44 +127,94 @@ def Loop2():
 
     return ir
 
-def InterchangeLoop(loop, loop_idx=[]):
-	#Implement here
-	pass
-
-def InterchangeLoopDemoOnSept122023(loop, loop_idx=[]):
-    ir_res = []
-    inner_most_loop_pointer = []
-    for item in loop:
-        if type(item)==Loop:
-            body = item.body[0]
-            while type(body) == Loop:
-                inner_most_loop_pointer = body
-                body = body.body[0]
-    
-    body = inner_most_loop_pointer.body
+######################################################## Steps
+# 1. Identify the loop body
+# the output of first step
+# A[_l0 + 1][_l1][_l2] = B[_l0 + 1][_l1][_l2 - 1] + 2;
+# B[_l0 + 1][_l1 + 2][_l2 - 1] = A[_l0][_l1][_l2 + 1] + B[_l0][_l1 + 2][_l2];
 
 
-    for item in body:
-        assert type(item)==Assignment
-        lhs = item.lhs
-        rhs = item.rhs
-        
-        idx = []
-        while type(lhs) == Index:
-            idx.append(lhs.index)
-            lhs = lhs.dobject
+# 2. Get the index statement of the loop body
+# write ststement array: A[_l0 + 1][_l1][_l2]B[_l0 + 1][_l1 + 2][_l2 - 1]
+# read statement array: B[_l0 + 1][_l1][_l2 - 1]A[_l0][_l1][_l2 + 1]B[_l0][_l1 + 2][_l2]
 
-        print(idx)
-        # if type(lhs) == Index:
+# 3. Group the index statement by there names.
+# Two dict:
+#     Write dicts: {A : [A[_l10 + 1][_l1][_l2]], 'B' : [B[_l0 + 1][_l1 + 2][_l2 - 1]]}
+#     Read dicts:  {A : [A[_l0][_l1][_l2 + 1]], 'B' : [B[_l0 + 1][_l1][_l2 - 1], B[_l0][_l1 + 2][_l2]]}
+
+# 4. Compute the direction vector
+# [Write expression, Read expression]
+# [A[_l10 + 1][_l1][_l2], A[_l0][_l1][_l2 + 1]]
+# [B[_l0 + 1][_l1 + 2][_l2 - 1], B[_l0 + 1][_l1][_l2 - 1]]
+# [B[_l0 + 1][_l1 + 2][_l2 - 1], B[_l0][_l1 + 2][_l2]]
+
+# Distance vector:
+# [1, 0, -1]
+# [0, 2,  0]
+# [1, 0, -1]
+
+# Direction vector
+# [<, =, >]
+# [=, <, =]
+# [<, =, >]
+
+# 5. Safety checking based on the direction vector we get:
+# Exchange [0, 1]
+# [=, <, >]
+# [<, =, =]
+# [=, <, >]
+
+# Exchange [0, 2]
+# [>, =, <] The first 
+
+######################################################## GetIndex()
+def GetIndex(statement, is_write, write_expr = [], read_expr = []):
+    if type(statement) == Ndarray or type(statement) == Index:
+        if is_write:
+            write_expr.append(statement)
+        else:
+            read_expr.append(statement)
             
-        # else:
+    if type(statement) == Assignment:
+        GetIndex(statement.lhs, True, write_expr, read_expr)
+        GetIndex(statement.rhs, False, write_expr, read_expr)
+    elif type(statement) == Expr:
+        GetIndex(statement.left, is_write, write_expr, read_expr)
+        GetIndex(statement.right, is_write, write_expr, read_expr)
+    else:
+        return
+######################################################## FindBody() Part 1
+def FindBody(nested_loop):
+    if not type(nested_loop) == Loop:
+        return nested_loop
+    if type(nested_loop.body[0]) == Loop:
+        return FindBody(nested_loop.body[0])
+    else:
+        return nested_loop.body
+######################################################## InterchangeLoop()
+def InterchangeLoop(ir, loop_idx=[]):
+    
+    ir_res = []
+    write_expr = []
+    read_expr = []
+    #######################################
+    for ir_item in ir:
+        if type(ir_item)==Loop:
+            body = FindBody(ir_item)
+            for body_item in body:
+                GetIndex(body_item, False, write_expr, read_expr)
+    
+    
+    #######################################     
+    print("<===== Loop body we got! =====>")    
+    PrintCCode(body)
+    
+    print("<===== Read/Write Statements =====>")
+    # Index data structure
+    PrintCCode(write_expr)  
+    PrintCCode(read_expr)
 
-        # if type(rhs) == Ndarray:
-    PrintCCode(inner_most_loop_pointer.body)
-
-
-    #print("Please implement the pass here")
-    pass
 
 if __name__ == "__main__":
     loop0_ir = Loop0()
@@ -173,8 +223,6 @@ if __name__ == "__main__":
     PrintCCode(loop0_ir)
 
     optimized_loop1_ir = InterchangeLoop(loop0_ir, [0, 1])
-
-    #PrintCCode(optimized_loop1_ir)
     # optimized_loop1_ir = InterchangeLoop(loop1_ir, [1, 2])
     # optimized_loop2_ir = InterchangeLoop(loop2_ir, [0, 1])
 
