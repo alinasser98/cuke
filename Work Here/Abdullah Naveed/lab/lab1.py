@@ -11,6 +11,11 @@ def PrintCCode(ir):
 		if d:
 			code += to_string(d)
 	print(code)
+ 
+def PrintCGroupCode(index_groups):
+    for name, expressions in index_groups.items():
+        for expr in expressions:
+            print(to_string(expr))
 
 
 def Loop0():
@@ -168,7 +173,42 @@ def Loop2():
 # Exchange [0, 2]
 # [>, =, <] The first 
 
-######################################################## GetIndex()
+######################################################## [Write expression, Read expression] Step 4
+def Write_expression_Read_expression(write_dic, read_dic):
+    combinations = []
+    for key in write_dic.keys():
+        for writer in range(0, len(write_dic[key])):
+            key_writer_list = write_dic[key]
+            key_reader_list = read_dic[key]
+            for reader in range(0, len(key_reader_list)):
+                combinations.append([key_writer_list[writer], key_reader_list[reader]])
+    
+    return combinations
+
+######################################################## read_write_dic() Step 3
+def read_write_dic(write_expr, read_expr):
+    def recursive_group(original_statement, cur_statement,  res_dict):
+        if type(cur_statement) == Ndarray:
+            name = cur_statement.__name__
+            if (name not in res_dict):
+                res_dict[name] = [original_statement]
+            else:
+                res_dict[name].append(original_statement)
+        
+        elif type(cur_statement) == Index:
+            recursive_group(original_statement, cur_statement.dobject, res_dict)
+
+    ####################################>
+    write_index_groups = {}
+    read_index_groups = {}
+    for statement in write_expr:
+        recursive_group(statement, statement, write_index_groups)
+    for statement in read_expr:
+        recursive_group(statement, statement, read_index_groups)
+    ####################################>
+    return write_index_groups, read_index_groups
+
+######################################################## GetIndex() Step 2
 def GetIndex(statement, is_write, write_expr = [], read_expr = []):
     if type(statement) == Ndarray or type(statement) == Index:
         if is_write:
@@ -184,6 +224,7 @@ def GetIndex(statement, is_write, write_expr = [], read_expr = []):
         GetIndex(statement.right, is_write, write_expr, read_expr)
     else:
         return
+    
 ######################################################## FindBody() Part 1
 def FindBody(nested_loop):
     if not type(nested_loop) == Loop:
@@ -192,28 +233,45 @@ def FindBody(nested_loop):
         return FindBody(nested_loop.body[0])
     else:
         return nested_loop.body
+    
 ######################################################## InterchangeLoop()
 def InterchangeLoop(ir, loop_idx=[]):
-    
     ir_res = []
     write_expr = []
     read_expr = []
     #######################################
     for ir_item in ir:
-        if type(ir_item)==Loop:
+        if type(ir_item) == Loop:
             body = FindBody(ir_item)
             for body_item in body:
                 GetIndex(body_item, False, write_expr, read_expr)
     
+    write_index_groups, read_index_groups = read_write_dic(write_expr, read_expr)
+    returned_combination = Write_expression_Read_expression(write_index_groups, read_index_groups)
     
-    #######################################     
-    print("<===== Loop body we got! =====>")    
+    
+    ############################################### Testing Each Step Output
+    print("<===== (Step 1) Loop body we got! =====>")    
     PrintCCode(body)
     
-    print("<===== Read/Write Statements =====>")
-    # Index data structure
+    print("<===== (Step 2) Read/Write Statements =====>")
     PrintCCode(write_expr)  
     PrintCCode(read_expr)
+    
+    print("\n<===== (Step 3) Write Dic! =====>")
+    PrintCGroupCode(write_index_groups)
+    
+    print("\n<=====  (Step 3) Read Dic! =====>")
+    PrintCGroupCode(read_index_groups)
+    
+    print("\n<===== Printing the list associated with 'B' key (read dic)! =====>")
+    PrintCCode(read_index_groups['B'])
+    print("Length = ", len(read_index_groups['B']))
+    
+    print("\n<===== (Step 4) Write/Read combinations =====>")
+    for comb in range(0, len(returned_combination)):
+        PrintCCode(returned_combination[comb])
+    
 
 
 if __name__ == "__main__":
