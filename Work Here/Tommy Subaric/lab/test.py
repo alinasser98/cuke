@@ -1,5 +1,6 @@
 import sys
 import os
+from lab1 import InterchangeLoop
 
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from core.ast2ir import *
@@ -16,9 +17,10 @@ def run_demo():
         return A + B - C
 
     ast = func()
-    code = codegen.cpu.gen_cpp(gen_ir(ast))
 
-    # code = codegen.cpu.print_cpp(InterchangeLoop(ast._gen_ir(), [0, 1]))
+    # code = codegen.cpu.gen_cpp(gen_ir(ast))
+
+    code = codegen.cpu.gen_cpp(InterchangeLoop(gen_ir(ast), [0, 1]))
 
     A = torch.rand(10, 10)
     B = torch.rand(10, 10)
@@ -26,8 +28,6 @@ def run_demo():
 
     d = run.cpu.compile_and_run(code, A, B, C)
     print(torch.equal(A + B - C, d))
-
-
 
 if __name__ == "__main__":
     run_demo()

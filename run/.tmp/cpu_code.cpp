@@ -1,24 +1,28 @@
 #include <torch/extension.h>
 
-torch::Tensor einsum_a_b_(int d1, int d2, int d4, int d3, torch::Tensor obj_a, torch::Tensor obj_b)
+torch::Tensor sub_add_a_b_c(torch::Tensor obj_a, torch::Tensor obj_b, torch::Tensor obj_c)
 {
-    auto a = obj_a.accessor<float, 3>();
-auto b = obj_b.accessor<float, 3>();
-torch::Tensor obj_arr10 = torch::zeros({d1,d2,d4}, at::kFloat);
-auto arr10 = obj_arr10.accessor<float, 3>();
-for (int _l0 = 0; _l0 < d1; _l0 += 1) {
-for (int _l1 = 0; _l1 < d2; _l1 += 1) {
-for (int _l2 = 0; _l2 < d3; _l2 += 1) {
-for (int _l3 = 0; _l3 < d4; _l3 += 1) {
-arr10[_l0][_l1][_l3] += a[_l0][_l1][_l2] * b[_l0][_l2][_l3];
+    auto a = obj_a.accessor<float, 2>();
+auto b = obj_b.accessor<float, 2>();
+torch::Tensor obj_arr2 = torch::empty({10,10}, at::kFloat);
+auto arr2 = obj_arr2.accessor<float, 2>();
+for (int _l0 = 0; _l0 < 10; _l0 += 1) {
+for (int _l1 = 0; _l1 < 10; _l1 += 1) {
+arr2[_l0][_l1] = a[_l0][_l1] + b[_l0][_l1];
 } 
 } 
+auto c = obj_c.accessor<float, 2>();
+torch::Tensor obj_arr6 = torch::empty({10,10}, at::kFloat);
+auto arr6 = obj_arr6.accessor<float, 2>();
+for (int _l2 = 0; _l2 < 10; _l2 += 1) {
+for (int _l3 = 0; _l3 < 10; _l3 += 1) {
+arr6[_l2][_l3] = arr2[_l2][_l3] - c[_l2][_l3];
 } 
 } 
-return obj_arr10;
+return obj_arr6;
 
 }
 
 PYBIND11_MODULE(TORCH_EXTENSION_NAME, m) {
-    m.def("run", &einsum_a_b_);
+    m.def("run", &sub_add_a_b_c);
 }
