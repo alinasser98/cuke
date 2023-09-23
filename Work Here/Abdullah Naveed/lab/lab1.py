@@ -1,5 +1,6 @@
 import sys
 import os
+import re
 
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from core.ir import *
@@ -171,10 +172,71 @@ def Loop2():
 # [=, <, >]
 
 # Exchange [0, 2]
-# [>, =, <] The first 
+# [>, =, <] The first
+
+################################################################################################################
+######################################################## calculate the direction vector using distances
+def direction_vector(dist_vect):
+    dir_vect = []
+    for i in range(0, len(dist_vect)):
+        directions = []
+        for j in range(0, len(dist_vect[i])):
+            if dist_vect[i][j] > 0:
+                directions.append('<')
+            elif dist_vect[i][j] < 0:
+                directions.append('>')
+            else:
+                directions.append('=')
+        dir_vect.append(directions)
+    return dir_vect
+
+######################################################## Helper functeion for extracting int from i.e "_l0 + 1"
+def extract_integer_value(exp):
+    exp = exp.replace(" ", "")
+    for character in range(0, len(exp)):
+        if len(exp) > 1:
+            if exp[character].isdigit() and exp[character-1].isalpha():
+                pass
+            elif exp[character].isdigit() and exp[character-1] == '-':
+                return -1 * int(exp[character])
+            elif exp[character].isdigit():
+                return int(exp[character])
+    return 0
+
+######################################################## calculate the distance but in reverse and then correcting
+def distance_vector(combinations):
+    def calculate_distance(combo, dist_vect, temp_dist):
+        if type(combo[0]) == Ndarray and type(combo[1]) == Ndarray:
+            return dist_vect.append(temp_dist)
+        
+        elif type(combo[0]) == Index and type(combo[1]) == Index:
+            index_1 = to_string(combo[0].index)
+            index_2 = to_string(combo[1].index)
+            
+            numeric_value1 = extract_integer_value(index_1)
+            numeric_value2 = extract_integer_value(index_2)
+            distance = numeric_value1 - numeric_value2
+
+            temp_dist.append(distance)
+            calculate_distance([combo[0].dobject,combo[1].dobject], dist_vect, temp_dist)
+            
+    dist_vect = []
+    for combo in combinations:
+        temp_dist = []
+        dist = calculate_distance(combo, dist_vect, temp_dist)
+        dist_vect.append(dist)
+    
+    #Removing none and reversing
+    filtered_dist_vect = [x for x in dist_vect if x is not None]
+    final_dist = []
+    for vec in filtered_dist_vect:
+        vec = list(reversed(vec))
+        final_dist.append(vec)
+    
+    return final_dist
 
 ######################################################## [Write expression, Read expression] Step 4
-def Write_expression_Read_expression(write_dic, read_dic):
+def Write_expression_Read_expression_combination(write_dic, read_dic):
     combinations = []
     for key in write_dic.keys():
         for writer in range(0, len(write_dic[key])):
@@ -185,6 +247,7 @@ def Write_expression_Read_expression(write_dic, read_dic):
     
     return combinations
 
+################################################################################################################
 ######################################################## read_write_dic() Step 3
 def read_write_dic(write_expr, read_expr):
     def recursive_group(original_statement, cur_statement,  res_dict):
@@ -208,6 +271,7 @@ def read_write_dic(write_expr, read_expr):
     ####################################>
     return write_index_groups, read_index_groups
 
+################################################################################################################
 ######################################################## GetIndex() Step 2
 def GetIndex(statement, is_write, write_expr = [], read_expr = []):
     if type(statement) == Ndarray or type(statement) == Index:
@@ -225,6 +289,7 @@ def GetIndex(statement, is_write, write_expr = [], read_expr = []):
     else:
         return
     
+################################################################################################################
 ######################################################## FindBody() Part 1
 def FindBody(nested_loop):
     if not type(nested_loop) == Loop:
@@ -233,7 +298,8 @@ def FindBody(nested_loop):
         return FindBody(nested_loop.body[0])
     else:
         return nested_loop.body
-    
+
+################################################################################################################
 ######################################################## InterchangeLoop()
 def InterchangeLoop(ir, loop_idx=[]):
     ir_res = []
@@ -247,18 +313,22 @@ def InterchangeLoop(ir, loop_idx=[]):
                 GetIndex(body_item, False, write_expr, read_expr)
     
     write_index_groups, read_index_groups = read_write_dic(write_expr, read_expr)
-    returned_combination = Write_expression_Read_expression(write_index_groups, read_index_groups)
-    
+    returned_combination = Write_expression_Read_expression_combination(write_index_groups, read_index_groups)
+    dist_vec = distance_vector(returned_combination)
+    dir_vect = direction_vector(dist_vec)
     
     ############################################### Testing Each Step Output
+    print("#############################################################################")  
     print("<===== (Step 1) Loop body we got! =====>")    
     PrintCCode(body)
     
+    print("#############################################################################")  
     print("<===== (Step 2) Read/Write Statements =====>")
     PrintCCode(write_expr)  
     PrintCCode(read_expr)
     
-    print("\n<===== (Step 3) Write Dic! =====>")
+    print("\n#############################################################################")  
+    print("<===== (Step 3) Write Dic! =====>")
     PrintCGroupCode(write_index_groups)
     
     print("\n<=====  (Step 3) Read Dic! =====>")
@@ -268,9 +338,16 @@ def InterchangeLoop(ir, loop_idx=[]):
     PrintCCode(read_index_groups['B'])
     print("Length = ", len(read_index_groups['B']))
     
-    print("\n<===== (Step 4) Write/Read combinations =====>")
+    print("\n#############################################################################")  
+    print("<===== (Step 4) Write/Read combinations =====>")
     for comb in range(0, len(returned_combination)):
         PrintCCode(returned_combination[comb])
+    
+    print("\n<===== (Step 4) Distance vector =====>")
+    print(dist_vec)
+    
+    print("\n<===== (Step 4) Direction vector =====>")
+    print(dir_vect)
     
 
 
