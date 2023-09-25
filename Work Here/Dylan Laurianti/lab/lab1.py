@@ -449,8 +449,11 @@ if __name__ == "__main__":
     # swapped1, optimized_loop1_ir = InterchangeLoop(loop1_ir, [1, 2])
     # swapped2, optimized_loop2_ir = InterchangeLoop(loop2_ir, [0, 1])
 
+    print('IR before interchange:')
     PrintCCode(loop0_ir)
+    print('IR after interchange:')
     PrintCCode(optimized_loop0_ir)
+
 
     # optimized_ir = LoopInterchange(ir)
     # print("Loop after interchange:")
