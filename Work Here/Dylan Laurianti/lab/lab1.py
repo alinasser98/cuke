@@ -1,6 +1,6 @@
 import sys
 import os
-import re
+import copy
 
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
@@ -321,9 +321,59 @@ def FindBody(nested_loop):
     else:
         return nested_loop.body
 
+# will swap loops regardless of semantic safety
+# intended to be called only after safety check
+def SwapLoops(ir, loop_idx):
+    print(ir)
+    ir = copy.deepcopy(ir)
+    print(ir)
+    # if the first swap loop index is zero we need to know where 
+    # to put the inner loop in the ir
+    loop_replace_index = 0
+
+    for index, ir_item in enumerate(ir):
+        if type(ir_item) == Loop:
+            outer_loop = ir_item
+            loop_replace_index = index
+            break
+    outer_loop_parent = ir[loop_replace_index]
+    # recursively find the outer loop of the exchange
+    # store the parent of the outer loop to later make the inner loop
+    # a child of the parent/child of the outer loop to swap later
+    for _ in range(0, loop_idx[0]):
+        if type(outer_loop.body[0]) == Loop:
+            outer_loop_parent = outer_loop
+            outer_loop = outer_loop.body[0]
+        else:
+            raise Exception("Loop index out of bounds")
+    outer_loop_child = outer_loop.body
+
+
+    # recursively find the inner loop of the exchange
+    # store the parent/child of the inner loop to swap later
+    inner_loop = outer_loop
+    inner_loop_parent = outer_loop_parent
+    for _ in range(loop_idx[0], loop_idx[1]):
+        if type(inner_loop.body[0]) == Loop:
+            inner_loop = inner_loop.body[0]
+        else:
+            raise Exception("Loop index out of bounds")
+    inner_loop_child = inner_loop.body
+
+    # swap the loops
+    outer_loop_parent.body[0] = inner_loop
+    inner_loop_parent.body[0] = outer_loop
+    outer_loop.body = inner_loop_child
+    inner_loop.body = outer_loop_child
+
+    return ir
+        
+    
+        
+    
+
 
 def InterchangeLoop(ir, loop_idx=[]):
-    ir_res = []
     write_expr = []
     read_expr = []
     for ir_item in ir:
@@ -379,6 +429,11 @@ def InterchangeLoop(ir, loop_idx=[]):
     else:
         print("Loop interchange is not safe. Conflicting directions detected in direction vectors.")
 
+    if not is_safe:
+        return False, ir
+
+    ir_res = SwapLoops(ir, loop_idx)
+    return True, ir_res
 
 if __name__ == "__main__":
     loop0_ir = Loop0()
