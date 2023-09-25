@@ -2,11 +2,10 @@ import sys
 import os
 import re
 
-from core.ir import Scalar, Ndarray, Loop, Assignment, Expr, Index, Decl
-from codegen.cpu import to_string, gen_cpp
-
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
+from codegen.cpu import to_string, gen_cpp  # noqa: E402 <- disables linter warning
+from core.ir import Scalar, Ndarray, Loop, Assignment, Expr, Index, Decl  # noqa: E402 <- disables linter warning
 
 def PrintCCode(ir):
     code = ''
@@ -156,17 +155,15 @@ def Loop2():
 
 
 def is_interchange_safe(direction_vectors, loop_indices_to_interchange):
-    # Loop through the selected pairs of loops to interchange
-    for i in range(len(loop_indices_to_interchange)):
-        for j in range(i + 1, len(loop_indices_to_interchange)):
-            loop1_idx = loop_indices_to_interchange[i]
-            loop2_idx = loop_indices_to_interchange[j]
-
-            # Check the direction vectors for conflicts
-            for direction1, direction2 in zip(direction_vectors[loop1_idx], direction_vectors[loop2_idx]):
-                if direction1 != '=' and direction2 != '=' and direction1 != direction2:
-                    # If there's a conflict, return False
-                    return False
+    # Loop through the direction vectors, checking if the interchange changes
+    # the semantics of the program
+    for vector in direction_vectors:
+        for loop_idx in range(loop_indices_to_interchange[0], loop_indices_to_interchange[1]):
+            if (vector[loop_idx] != '=' and
+                vector[loop_indices_to_interchange[1]] != '=' and
+                    vector[loop_idx] != vector[loop_indices_to_interchange[1]]):
+                print('False')
+                return False
 
     return True
 
@@ -341,7 +338,7 @@ def InterchangeLoop(ir, loop_idx=[]):
         write_index_groups, read_index_groups)
     dist_vec = distance_vector(returned_combination)
     dir_vect = direction_vector(dist_vec)
-    is_safe = is_interchange_safe(dir_vect, [0, 1])
+    is_safe = is_interchange_safe(dir_vect, loop_idx)
 
     # Testing Each Step Output
     print("#############################################################################")
@@ -360,9 +357,10 @@ def InterchangeLoop(ir, loop_idx=[]):
     print("\n<=====  (Step 3) Read Dic! =====>")
     PrintCGroupCode(read_index_groups)
 
-    print("\n<===== Printing the list associated with 'B' key (read dic)! =====>")
-    PrintCCode(read_index_groups['B'])
-    print("Length = ", len(read_index_groups['B']))
+    # This test is not applicable to all examples
+    # print("\n<===== Printing the list associated with 'B' key (read dic)! =====>")
+    # PrintCCode(read_index_groups['B'])
+    # print("Length = ", len(read_index_groups['B']))
 
     print("\n#############################################################################")
     print("<===== (Step 4) Write/Read combinations =====>")
@@ -388,9 +386,9 @@ if __name__ == "__main__":
     loop2_ir = Loop2()
     PrintCCode(loop0_ir)
 
-    optimized_loop1_ir = InterchangeLoop(loop0_ir, [0, 1])
-    # optimized_loop1_ir = InterchangeLoop(loop1_ir, [1, 2])
-    # optimized_loop2_ir = InterchangeLoop(loop2_ir, [0, 1])
+    optimized_loop0_ir = InterchangeLoop(loop0_ir, [0, 1])
+    optimized_loop1_ir = InterchangeLoop(loop1_ir, [1, 2])
+    optimized_loop2_ir = InterchangeLoop(loop2_ir, [0, 1])
 
     # optimized_ir = LoopInterchange(ir)
     # print("Loop after interchange:")
