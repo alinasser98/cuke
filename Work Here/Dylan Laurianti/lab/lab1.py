@@ -324,9 +324,7 @@ def FindBody(nested_loop):
 # will swap loops regardless of semantic safety
 # intended to be called only after safety check
 def SwapLoops(ir, loop_idx):
-    print(ir)
     ir = copy.deepcopy(ir)
-    print(ir)
     # if the first swap loop index is zero we need to know where 
     # to put the inner loop in the ir
     loop_replace_index = 0
@@ -336,7 +334,7 @@ def SwapLoops(ir, loop_idx):
             outer_loop = ir_item
             loop_replace_index = index
             break
-    outer_loop_parent = ir[loop_replace_index]
+    outer_loop_parent = None
     # recursively find the outer loop of the exchange
     # store the parent of the outer loop to later make the inner loop
     # a child of the parent/child of the outer loop to swap later
@@ -346,25 +344,31 @@ def SwapLoops(ir, loop_idx):
             outer_loop = outer_loop.body[0]
         else:
             raise Exception("Loop index out of bounds")
-    outer_loop_child = outer_loop.body
+    outer_loop_body = outer_loop.body
 
 
     # recursively find the inner loop of the exchange
     # store the parent/child of the inner loop to swap later
-    inner_loop = outer_loop
-    inner_loop_parent = outer_loop_parent
-    for _ in range(loop_idx[0], loop_idx[1]):
+    inner_loop = outer_loop.body[0]
+    inner_loop_parent = outer_loop
+    for _ in range(loop_idx[0], loop_idx[1]-1):
         if type(inner_loop.body[0]) == Loop:
+            inner_loop_parent = inner_loop
             inner_loop = inner_loop.body[0]
         else:
             raise Exception("Loop index out of bounds")
-    inner_loop_child = inner_loop.body
+    inner_loop_body = inner_loop.body
 
     # swap the loops
-    outer_loop_parent.body[0] = inner_loop
+    # print(outer_loop)
+    # print(inner_loop)
+    if outer_loop_parent is None:
+        ir[loop_replace_index] = inner_loop
+    else:
+        outer_loop_parent.body[0] = inner_loop
     inner_loop_parent.body[0] = outer_loop
-    outer_loop.body = inner_loop_child
-    inner_loop.body = outer_loop_child
+    outer_loop.body = inner_loop_body
+    inner_loop.body = outer_loop_body
 
     return ir
         
@@ -441,9 +445,12 @@ if __name__ == "__main__":
     loop2_ir = Loop2()
     PrintCCode(loop0_ir)
 
-    optimized_loop0_ir = InterchangeLoop(loop0_ir, [0, 1])
-    optimized_loop1_ir = InterchangeLoop(loop1_ir, [1, 2])
-    optimized_loop2_ir = InterchangeLoop(loop2_ir, [0, 1])
+    swapped0, optimized_loop0_ir = InterchangeLoop(loop0_ir, [0, 1])
+    # swapped1, optimized_loop1_ir = InterchangeLoop(loop1_ir, [1, 2])
+    # swapped2, optimized_loop2_ir = InterchangeLoop(loop2_ir, [0, 1])
+
+    PrintCCode(loop0_ir)
+    PrintCCode(optimized_loop0_ir)
 
     # optimized_ir = LoopInterchange(ir)
     # print("Loop after interchange:")
